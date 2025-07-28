@@ -1,0 +1,137 @@
+LinkedIn Content Automation Engine{
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "sheetId": "YOUR_SPREADSHEET_ID",
+        "range": "Sheet1!A2:E",
+        "valueRenderMode": "FORMATTED_VALUE"
+      },
+      "id": "1",
+      "name": "Google Sheets Trigger",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 2,
+      "position": [200, 200],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.groq.com/v1/ai-agent",
+        "method": "POST",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "{\"prompt\": \"Generate LinkedIn content based on: {{$json[\"topic\"]}}\", \"model\": \"llama3-8b\"}"
+      },
+      "id": "2",
+      "name": "Groq LLM - Generate Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [400, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "const parsed = JSON.parse(items[0].json.response);\nreturn [{ json: { content: parsed.content } }];"
+      },
+      "id": "3",
+      "name": "Parse AI Output",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [600, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://api.linkedin.com/v2/ugcPosts",
+        "method": "POST",
+        "authentication": "headerAuth",
+        "jsonParameters": true,
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer YOUR_LINKEDIN_ACCESS_TOKEN"
+          }
+        ],
+        "bodyParametersJson": "{\n  \"author\": \"urn:li:person:YOUR_LINKEDIN_ID\",\n  \"lifecycleState\": \"PUBLISHED\",\n  \"specificContent\": {\n    \"com.linkedin.ugc.ShareContent\": {\n      \"shareCommentary\": {\n        \"text\": \"{{$json[\"content\"]}}\"\n      },\n      \"shareMediaCategory\": \"NONE\"\n    }\n  },\n  \"visibility\": {\n    \"com.linkedin.ugc.MemberNetworkVisibility\": \"PUBLIC\"\n  }\n}"
+      },
+      "id": "4",
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [800, 200]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "sheetId": "YOUR_SPREADSHEET_ID",
+        "range": "Sheet1!F2",
+        "valueInputMode": "RAW",
+        "values": [
+          [
+            "Posted"
+          ]
+        ]
+      },
+      "id": "5",
+      "name": "Update Sheet Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 2,
+      "position": [1000, 200],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets OAuth"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Google Sheets Trigger": {
+      "main": [
+        [
+          {
+            "node": "Groq LLM - Generate Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq LLM - Generate Content": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Output": {
+      "main": [
+        [
+          {
+            "node": "Post to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Update Sheet Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
