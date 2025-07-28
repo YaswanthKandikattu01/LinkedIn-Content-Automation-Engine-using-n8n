@@ -1,0 +1,138 @@
+This automation engine generates and posts LinkedIn content using AI and updates a Google Sheet with the post status. It is built with n8n, and integrates:
+
+Google Sheets (as the data source and tracker)
+
+Groq LLM + AI Agent (for content generation)
+
+LinkedIn API (for posting)
+
+n8n Function & HTTP nodes (for parsing and handling API requests)
+
+⚙️ Workflow Steps
+1. Google Sheets Trigger
+Node: Google Sheets Trigger
+
+Purpose: Reads new or updated rows from a specified Google Sheet.
+
+Expected Sheet Columns:
+
+Topic or Prompt (content seed for AI)
+
+Status (e.g., blank initially, will be marked “Posted” after successful publishing)
+
+📝 Example range: Sheet1!A2:E (customize as needed)
+
+2. Groq LLM – Generate Content
+Node: HTTP Request
+
+Endpoint: https://api.groq.com/v1/ai-agent
+
+Method: POST
+
+Body: JSON with a prompt dynamically injected from the sheet data
+
+json
+Copy
+Edit
+{
+  "prompt": "Generate LinkedIn content based on: {{$json[\"topic\"]}}",
+  "model": "llama3-8b"
+}
+Purpose: Calls Groq’s LLM to generate LinkedIn-friendly content
+
+🔐 Requires Groq API access token if applicable
+
+3. Parse AI Output
+Node: Function
+
+Purpose: Parses the JSON response from the AI to extract clean text content
+
+Code Sample:
+
+js
+Copy
+Edit
+const parsed = JSON.parse(items[0].json.response);
+return [{ json: { content: parsed.content } }];
+4. Post to LinkedIn
+Node: HTTP Request
+
+Endpoint: https://api.linkedin.com/v2/ugcPosts
+
+Method: POST
+
+Authentication: Bearer token in header
+
+Payload Example:
+
+json
+Copy
+Edit
+{
+  "author": "urn:li:person:YOUR_LINKEDIN_ID",
+  "lifecycleState": "PUBLISHED",
+  "specificContent": {
+    "com.linkedin.ugc.ShareContent": {
+      "shareCommentary": {
+        "text": "{{$json[\"content\"]}}"
+      },
+      "shareMediaCategory": "NONE"
+    }
+  },
+  "visibility": {
+    "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
+  }
+}
+🔐 Requires LinkedIn Developer access and access token (OAuth2 or personal access)
+
+5. Update Google Sheet with Status
+Node: Google Sheets – Update
+
+Purpose: Writes back the status (Posted) to the original row
+
+Example Update: Column F, matching row (e.g., Sheet1!F2)
+
+6. Looping / Multiple Rows
+This workflow can be wrapped in an n8n Loop node or scheduled run using the Cron trigger to:
+
+Check for all rows with blank status
+Process them one by one
+🔐 Authentication Required
+Integration	Method
+Google Sheets	OAuth2
+LinkedIn	Header Auth (Bearer Token)
+Groq API	HTTP Auth (or API Key in header)
+
+📊 Example Sheet Format
+Topic	Status
+AI in Automotive	(blank)
+How n8n Changed My Workflow	(blank)
+
+After running, the Status column will show Posted.
+
+🔁 Optional Enhancements
+Add a Cron trigger for regular runs
+
+Add an error handler branch to log failures
+
+Use a database instead of Sheets for better scaling
+
+Add media/image upload if needed (LinkedIn supports this via API)
+
+📎 Required Tools / APIs
+✅ n8n
+
+✅ Google Cloud Project for Sheets API
+
+✅ Groq AI Agent API
+
+✅ LinkedIn Developer Account
+
+🧪 Testing Tips
+Run the Google Sheets node first in manual mode to confirm data is being read.
+
+Use Mock responses for the LLM to verify parsing works.
+
+Use LinkedIn’s API validator or test post endpoint to confirm your token and format.
+
+
